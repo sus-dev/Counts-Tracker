@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Long Beach Turning Movement Counter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F4F1; --surface:#FFFFFF; --ink:#1C2024; --muted:#5B636B; --line:#D5DAD6;
+  --asphalt:#3A3F45; --asphalt-2:#4A5057; --stripe:#FFFFFF;
+  --ped:#BFD63C; --ped-ink:#1C2024; --bike:#1E7B4F; --bike-ink:#FFFFFF;
+  --amber:#E3A21A; --amber-ink:#1C2024; --danger:#B3261E; --focus:#1A5FB4;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181B; --surface:#1F2327; --ink:#E8EBED; --muted:#9AA3AB; --line:#343A40;
+    --asphalt:#2A2E33; --asphalt-2:#363B41; --stripe:#D9DDE0;
+    --ped:#C5DC4A; --bike:#3FAF78; --bike-ink:#0F1A14; --amber:#F0B437; --danger:#FF8A80; --focus:#7FB2FF;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181B; --surface:#1F2327; --ink:#E8EBED; --muted:#9AA3AB; --line:#343A40;
+  --asphalt:#2A2E33; --asphalt-2:#363B41; --stripe:#D9DDE0;
+  --ped:#C5DC4A; --bike:#3FAF78; --bike-ink:#0F1A14; --amber:#F0B437; --danger:#FF8A80; --focus:#7FB2FF;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1100px;margin:0 auto;padding:12px 14px 40px}
+header.top{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;margin-bottom:10px}
+h1{font-size:1.15rem;margin:0;letter-spacing:.01em}
+.sub{color:var(--muted);font-size:.85rem}
+nav.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:3px}
+nav.tabs button{border:0;background:transparent;padding:7px 14px;border-radius:7px;cursor:pointer;font-weight:700;color:var(--muted)}
+nav.tabs button[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{border:1px solid var(--line);background:var(--surface);padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:700}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.danger{color:var(--danger)}
+.btn.danger-fill{background:var(--danger);border-color:var(--danger);color:var(--surface)}
+.confirm{margin-top:12px;padding:12px;border:2px solid var(--danger);border-radius:10px}
+.confirm p{margin:0}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+label.f{display:flex;flex-direction:column;gap:3px;font-size:.85rem;color:var(--muted)}
+label.f input,label.f select,label.f textarea{padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+h2{font-size:1rem;margin:0 0 10px}
+h3{font-size:.95rem;margin:14px 0 8px}
+
+/* count screen */
+.clockbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between}
+.interval{font-size:1.9rem;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.interval small{font-size:.9rem;color:var(--muted);font-weight:400;margin-left:6px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;margin:10px 0}
+.modes button{border:2px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 6px;font-weight:700;cursor:pointer;line-height:1.15}
+.modes button span{display:block;font-size:.75rem;font-weight:400;color:var(--muted)}
+.modes button[aria-pressed="true"][data-m="ped"]{background:var(--ped);color:var(--ped-ink);border-color:var(--ped)}
+.modes button[aria-pressed="true"][data-m="wc"],.modes button[aria-pressed="true"][data-m="oth"]{background:var(--amber);color:var(--amber-ink);border-color:var(--amber)}
+.modes button[aria-pressed="true"][data-m="bike"]{background:var(--bike);color:var(--bike-ink);border-color:var(--bike)}
+.modes button[aria-pressed="true"] span{color:inherit;opacity:.8}
+.attrs{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 14px;margin-bottom:10px}
+.attr{display:flex;align-items:center;gap:6px}
+.attr .k{width:58px;font-size:.85rem;color:var(--muted)}
+.seg{display:flex;flex:1;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;border-right:1px solid var(--line);background:var(--surface);padding:9px 4px;cursor:pointer;font-weight:700;min-width:0}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.attr.off{opacity:.35;pointer-events:none}
+
+.xing{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,1.6fr) minmax(0,1fr);gap:0;max-width:620px;margin:0 auto;aspect-ratio:1/1}
+.cell{position:relative;display:flex;align-items:stretch;justify-content:center;min-width:0;min-height:0}
+.road{background:var(--asphalt);display:flex;gap:6px;padding:8px}
+.road.v{flex-direction:column}
+.road.n{grid-area:1/2;flex-direction:row}
+.road.s{grid-area:3/2;flex-direction:row}
+.road.e{grid-area:2/3;flex-direction:column}
+.road.w{grid-area:2/1;flex-direction:column}
+.center{grid-area:2/2;background:var(--asphalt-2);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#E8EBED;text-align:center;font-size:.8rem;padding:4px}
+.center b{font-size:1.4rem}
+.closed{background:repeating-linear-gradient(45deg,var(--line) 0 6px,transparent 6px 12px);border-radius:6px}
+.legname{position:absolute;font-size:.75rem;color:var(--muted);line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.n-name{grid-area:1/1;align-self:start;justify-self:end;text-align:right;padding:4px 8px}
+.tap{flex:1;min-width:0;border:0;border-radius:8px;cursor:pointer;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;min-height:44px;background:rgba(255,255,255,.1);color:#F4F6F3;border:2px dashed rgba(255,255,255,.35);line-height:1.15;text-align:center}
+.tap .ct{font-size:1.5rem;font-variant-numeric:tabular-nums}
+.tap .lb{font-size:.78rem;font-weight:400;overflow-wrap:anywhere}
+.tap.xw{background:repeating-linear-gradient(90deg,var(--stripe) 0 8px,transparent 8px 16px);color:var(--ink);border:2px solid var(--stripe)}
+.road.e .tap.xw,.road.w .tap.xw{background:repeating-linear-gradient(0deg,var(--stripe) 0 8px,transparent 8px 16px)}
+.tap.xw .pill{max-width:100%;background:var(--surface);color:var(--ink);border-radius:8px;padding:3px 8px;display:flex;flex-direction:column;align-items:center;box-shadow:0 0 0 1px var(--line)}
+.tap.arrive{background:var(--bike);color:var(--bike-ink);border:2px solid var(--bike)}
+.mode-oth .tap.arrive{background:var(--amber);color:var(--amber-ink);border-color:var(--amber)}
+.tap.exit{background:var(--surface);color:var(--ink);border:2px solid var(--surface)}
+.tap.selected{outline:4px solid var(--ped);outline-offset:-4px}
+.tap.flash{animation:fl .35s ease-out}
+@keyframes fl{from{transform:scale(.94)}to{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.tap.flash{animation:none}}
+.corner{padding:6px;font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;justify-content:flex-end}
+.corner.tl{grid-area:1/1;justify-content:flex-start}
+.corner.tr{grid-area:1/3;justify-content:flex-start;align-items:flex-end;text-align:right}
+.corner.bl{grid-area:3/1}
+.corner.br{grid-area:3/3;align-items:flex-end;text-align:right}
+.hint{text-align:center;color:var(--muted);font-size:.85rem;margin:8px 0 0;min-height:1.3em}
+.log{list-style:none;margin:0;padding:0;font-size:.85rem}
+.log li{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.log li:last-child{border-bottom:0}
+.log button{border:0;background:none;color:var(--danger);cursor:pointer;font-weight:700;padding:0 4px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;display:flex;gap:12px;align-items:center;z-index:20;max-width:calc(100% - 24px);font-size:.9rem}
+.toast button{background:none;border:1px solid currentColor;color:inherit;border-radius:6px;padding:3px 9px;font-weight:700;cursor:pointer}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;font-size:.82rem;font-variant-numeric:tabular-nums;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:5px 7px;text-align:right;white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface);color:var(--muted);font-weight:700}
+td:first-child,th:first-child,td.l,th.l{text-align:left}
+.warn{color:var(--danger);font-size:.88rem}
+.ok{color:var(--bike);font-size:.88rem;font-weight:700}
+textarea.csv{width:100%;min-height:180px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.78rem;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.legtable td,.legtable th{text-align:left}
+.legtable select,.legtable input{padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:100%}
+.note{font-size:.85rem;color:var(--muted);margin:6px 0 0}
+.sumbar{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.85rem;color:var(--muted)}
+.sumbar b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="toast" class="toast" hidden></div>
+<script>
+(function(){
+"use strict";
+var DIRS=["N","E","S","W"], OPP={N:"S",S:"N",E:"W",W:"E"};
+var MODES=[
+  {k:"ped",type:"cross",name:"Pedestrian",pl:"Pedestrians",sub:"crosswalk"},
+  {k:"bike",type:"turn",name:"Bicycle",pl:"Bicycles",sub:"turning"}
+];
+var MODE={}; MODES.forEach(function(m){MODE[m.k]=m;});
+var KEY="lb-cat-counter-v1";
+var GLAB={F:"F",M:"M",U:"?"}, HLAB={Y:"Helmet",N:"No helmet",U:"?"}, ALAB={C:"Child",A:"Adult",E:"Elder",U:"?"};
+
+function uid(){return Math.random().toString(36).slice(2,10);}
+function todayISO(){var d=new Date();return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());}
+function p2(n){return (n<10?"0":"")+n;}
+function newSession(copyFrom){
+  var s={id:uid(),location:"",project:"",date:todayISO(),counter:"",period:"Before",method:"In-field",
+    precip:false,hi:"",lo:"",other:"",
+    legs:[{n:1,pos:"N",street:"",on:true,xw:true},{n:2,pos:"E",street:"",on:true,xw:true},{n:3,pos:"S",street:"",on:true,xw:true},{n:4,pos:"W",street:"",on:true,xw:true}],
+    labels:{ped:"Pedestrians",wc:"Wheelchairs",bike:"Bicycles",oth:"Other"},
+    defaults:{g:"U",h:"U",a:"U"},keepAttrs:false,zeroRows:false,
+    clock:"live",manualIv:"07:00",events:[]};
+  if(copyFrom){s.project=copyFrom.project;s.date=copyFrom.date;s.counter=copyFrom.counter;s.period=copyFrom.period;s.method=copyFrom.method;
+    s.precip=copyFrom.precip;s.hi=copyFrom.hi;s.lo=copyFrom.lo;s.other=copyFrom.other;
+    s.labels=JSON.parse(JSON.stringify(copyFrom.labels));s.defaults=JSON.parse(JSON.stringify(copyFrom.defaults));
+    s.keepAttrs=copyFrom.keepAttrs;s.zeroRows=copyFrom.zeroRows;s.clock=copyFrom.clock;}
+  return s;
+}
+
+var store=null, storageOK=true;
+try{var raw=localStorage.getItem(KEY); if(raw) store=JSON.parse(raw);}catch(e){storageOK=false;}
+if(!store||!store.sessions||!store.sessions.length){var s0=newSession();store={sessions:[s0],active:s0.id};}
+store.sessions.forEach(function(x){x.events=(x.events||[]).filter(function(e){return !!MODE[e.m];});});
+function save(){try{localStorage.setItem(KEY,JSON.stringify(store));storageOK=true;}catch(e){storageOK=false;}}
+function S(){for(var i=0;i<store.sessions.length;i++){if(store.sessions[i].id===store.active)return store.sessions[i];}store.active=store.sessions[0].id;return store.sessions[0];}
+
+var ui={tab:"count",mode:"ped",g:null,h:null,a:null,entry:null,lastTap:null,csvOpen:false,importText:"",manual:{iv:"",m:"ped",mv:"",vol:"",F:"",M:"",GU:"",HY:"",HN:"",HU:"",C:"",A:"",E:"",AU:""}};
+function resetAttrs(){var d=S().defaults;ui.g=d.g;ui.h=d.h;ui.a=d.a;}
+resetAttrs();
+
+/* ---------- geometry helpers ---------- */
+function legByPos(pos){var L=S().legs;for(var i=0;i<L.length;i++){if(L[i].on&&L[i].pos===pos)return L[i];}return null;}
+function legByN(n){var L=S().legs;for(var i=0;i<L.length;i++){if(L[i].n===n)return L[i];}return null;}
+function xwHeadings(pos){return (pos==="N"||pos==="S")?["W","E"]:["N","S"];}
+function turnName(inD,outD){var d=(DIRS.indexOf(outD)-DIRS.indexOf(inD)+4)%4;return ["through","right","U-turn","left"][d];}
+function legsValid(){var L=S().legs.filter(function(l){return l.on;});var seen={};for(var i=0;i<L.length;i++){if(seen[L[i].pos])return false;seen[L[i].pos]=1;}return L.length>=2;}
+function movements(mk){
+  var out=[],L=S().legs.filter(function(l){return l.on;});
+  if(MODE[mk].type==="cross"){
+    L.forEach(function(l){if(!l.xw)return;xwHeadings(l.pos).forEach(function(h){out.push({leg:l.n,dir:"",to:h,label:"Leg "+l.n+" ("+l.pos+") crosswalk, heading "+h});});});
+  }else{
+    L.forEach(function(a){L.forEach(function(b){var inD=OPP[a.pos],outD=b.pos;out.push({leg:a.n,dir:inD,to:outD,label:"Leg "+a.n+" \u2192 "+b.n+" "+turnName(inD,outD)+" (in "+inD+", out "+outD+")"});});});
+  }
+  return out;
+}
+
+/* ---------- intervals & time ---------- */
+function liveIv(){var d=new Date();return p2(d.getHours())+":"+p2(Math.floor(d.getMinutes()/15)*15);}
+function curIv(){var s=S();return s.clock==="live"?liveIv():s.manualIv;}
+function shiftIv(iv,step){var p=iv.split(":");var m=(+p[0])*60+(+p[1])+step*15;m=(m+1440)%1440;return p2(Math.floor(m/60))+":"+p2(m%60);}
+function ivEnd(iv){return shiftIv(iv,1);}
+function normIv(t){if(!/^\d{1,2}:\d{2}$/.test(t))return null;var p=t.split(":");var h=+p[0],m=+p[1];if(h>23||m>59)return null;return p2(h)+":"+p2(Math.floor(m/15)*15);}
+function tzOffset(date,iv){var d=new Date(date+"T"+iv+":00");if(isNaN(d))return "-08:00";var o=-d.getTimezoneOffset();var sg=o>=0?"+":"-";o=Math.abs(o);return sg+p2(Math.floor(o/60))+":"+p2(o%60);}
+
+/* ---------- recording ---------- */
+function record(ev){
+  var s=S();ev.at=Date.now();ev.id=uid();s.events.push(ev);save();
+  ui.lastTap=ev;
+  if(!s.keepAttrs)resetAttrs();
+  showToast(describe(ev));
+}
+function describe(ev){
+  var m=MODE[ev.m],s=S();var where;
+  if(m.type==="cross"){where="Leg "+ev.leg+" crosswalk heading "+ev.to;}
+  else{var b=null;s.legs.forEach(function(l){if(l.pos===ev.to)b=l;});where=ev.leg+" \u2192 "+(b?b.n:"?")+" "+turnName(ev.dir,ev.to);}
+  var at=[GLAB[ev.g]==="?"?"gender ?":GLAB[ev.g]];
+  if(m.type==="turn")at.push(ev.h==="U"?"helmet ?":HLAB[ev.h].toLowerCase());
+  at.push(ev.a==="U"?"age ?":ALAB[ev.a].toLowerCase());
+  return m.name+" at "+ev.iv+": "+where+", "+at.join(", ");
+}
+var toastTimer=null;
+function showToast(msg){
+  var t=document.getElementById("toast");
+  t.innerHTML="";var sp=document.createElement("span");sp.textContent=msg;t.appendChild(sp);
+  var b=document.createElement("button");b.textContent="Undo";b.onclick=function(){undoLast();};t.appendChild(b);
+  t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.hidden=true;},4000);
+}
+function undoLast(){var s=S();if(!s.events.length)return;var ev=s.events.pop();save();document.getElementById("toast").hidden=true;render();flashMsg("Removed: "+describe(ev));}
+function flashMsg(msg){var t=document.getElementById("toast");t.innerHTML="";var sp=document.createElement("span");sp.textContent=msg;t.appendChild(sp);t.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(function(){t.hidden=true;},3000);}
+
+function countWhere(f){var n=0,E=S().events;for(var i=0;i<E.length;i++)if(f(E[i]))n++;return n;}
+
+/* ---------- CSV ---------- */
+function aggregate(){
+  var s=S(),map={},keys=[];
+  s.events.forEach(function(e){
+    var k=[e.iv,e.m,e.leg,e.dir||"",e.to].join("|");
+    if(!map[k]){map[k]={iv:e.iv,m:e.m,leg:e.leg,dir:e.dir||"",to:e.to,v:0,F:0,M:0,GU:0,HY:0,HN:0,HU:0,C:0,A:0,E:0,AU:0};keys.push(k);}
+    var r=map[k];r.v++;
+    r[e.g==="F"?"F":e.g==="M"?"M":"GU"]++;
+    if(MODE[e.m].type==="turn")r[e.h==="Y"?"HY":e.h==="N"?"HN":"HU"]++;
+    r[e.a==="C"?"C":e.a==="A"?"A":e.a==="E"?"E":"AU"]++;
+  });
+  if(s.zeroRows&&s.events.length){
+    var ivs=ivRange();
+    ivs.forEach(function(iv){MODES.forEach(function(m){movements(m.k).forEach(function(mv){
+      var k=[iv,m.k,mv.leg,mv.dir,mv.to].join("|");
+      if(!map[k]){map[k]={iv:iv,m:m.k,leg:mv.leg,dir:mv.dir,to:mv.to,v:0,F:0,M:0,GU:0,HY:0,HN:0,HU:0,C:0,A:0,E:0,AU:0};keys.push(k);}
+    });});});
+  }
+  var mo={ped:0,wc:1,bike:2,oth:3};
+  var rows=keys.map(function(k){return map[k];});
+  rows.sort(function(a,b){return a.iv<b.iv?-1:a.iv>b.iv?1:mo[a.m]-mo[b.m]||a.leg-b.leg||DIRS.indexOf(a.dir)-DIRS.indexOf(b.dir)||DIRS.indexOf(a.to)-DIRS.indexOf(b.to);});
+  return rows;
+}
+function ivRange(){
+  var E=S().events;if(!E.length)return[];
+  var ivs=E.map(function(e){return e.iv;}).sort();var first=ivs[0],last=ivs[ivs.length-1],out=[],cur=first,guard=0;
+  while(guard++<200){out.push(cur);if(cur===last)break;cur=shiftIv(cur,1);}
+  return out;
+}
+function q(v){v=String(v==null?"":v);return /[",\n]/.test(v)||v.length?'"'+v.replace(/"/g,'""')+'"':'""';}
+function buildCSV(){
+  var s=S(),lines=[];
+  lines.push("batchStartDate,precipitation,highTemp,lowTemp,otherFactors");
+  lines.push([s.date,s.precip?"true":"false",s.hi,s.lo,q(s.other)].join(","));
+  lines.push("intervalStartTime,legNumber,direction,toDirection,mode,volume,female,male,unobservedGender,helmet,noHelmet,unobservedHelmet,child,adult,elder,unobservedAge");
+  aggregate().forEach(function(r){
+    var ts=s.date+"T"+r.iv+":00"+tzOffset(s.date,r.iv);
+    var turn=MODE[r.m].type==="turn";
+    lines.push([ts,r.leg,turn?r.dir:"",r.to,s.labels[r.m],r.v,r.F,r.M,r.GU,turn?r.HY:0,turn?r.HN:0,turn?r.HU:0,r.C,r.A,r.E,r.AU].join(","));
+  });
+  return lines.join("\n")+"\n";
+}
+function fileName(){var s=S();var loc=(s.location||"location").replace(/[^A-Za-z0-9]+/g,"_").replace(/^_|_$/g,"");return "CAT_intersection_"+loc+"_"+s.date+".csv";}
+
+var downloadsNS=null, downloadsChecked=false;
+function standalone(){return !(window.claude&&typeof window.claude.use==="function");}
+function canDownload(){return !!downloadsNS||standalone();}
+function plainDownload(){try{var blob=new Blob([buildCSV()],{type:"text/csv"});var u=URL.createObjectURL(blob);var a=document.createElement("a");a.href=u;a.download=fileName();document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(u);a.remove();},1000);flashMsg("Downloaded "+fileName());}catch(e){ui.csvOpen=true;render();}}
+if(window.claude&&typeof window.claude.use==="function"){
+  window.claude.use("downloads").then(function(ns){downloadsNS=ns;downloadsChecked=true;if(ui.tab==="data")render();}).catch(function(){downloadsChecked=true;});
+}else{downloadsChecked=true;}
+
+function exportCSV(){
+  if(!downloadsNS){if(standalone()){plainDownload();return;}ui.csvOpen=true;render();return;}
+  downloadsNS.save({filename:fileName(),data:buildCSV()}).then(function(){flashMsg("Saved "+fileName());}).catch(function(err){
+    var c=err&&err.code;
+    if(c==="declined")flashMsg("Save cancelled.");
+    else if(c==="rate_limited")flashMsg("A save prompt is already open. Try again in a moment.");
+    else{ui.csvOpen=true;render();flashMsg("Saving isn’t available here. Copy the CSV text below instead.");}
+  });
+}
+function copyCSV(){
+  var txt=buildCSV();
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(function(){flashMsg("CSV copied. Paste it into a .csv file.");},function(){ui.csvOpen=true;render();});}
+  else{ui.csvOpen=true;render();}
+}
+
+/* ---------- import (merge another counter's CSV) ---------- */
+function importCSV(text){
+  var s=S(),lines=text.split(/\r?\n/),start=-1;
+  for(var i=0;i<lines.length;i++){if(/^\s*intervalStartTime\s*,/.test(lines[i])){start=i;break;}}
+  if(start<0)return "No line starting with intervalStartTime was found.";
+  var rev={};Object.keys(s.labels).forEach(function(k){if(MODE[k])rev[s.labels[k].toLowerCase()]=k;});
+  var added=0,skipped=0;
+  for(var j=start+1;j<lines.length;j++){
+    var c=lines[j].split(",");if(c.length<16){continue;}
+    var iv=(c[0].split("T")[1]||"").slice(0,5);var mk=rev[(c[4]||"").trim().toLowerCase()];var v=+c[5];
+    if(!normIv(iv)||!mk||!(v>0)){skipped++;continue;}
+    var n=function(x){return Math.max(0,+x||0);};
+    var gl=fill([["F",n(c[6])],["M",n(c[7])]],v), hl=MODE[mk].type==="turn"?fill([["Y",n(c[9])],["N",n(c[10])]],v):fill([],v), al=fill([["C",n(c[12])],["A",n(c[13])],["E",n(c[14])]],v);
+    for(var k=0;k<v;k++){s.events.push({id:uid(),at:"import",iv:normIv(iv),m:mk,leg:+c[1],dir:MODE[mk].type==="turn"?c[2].trim():"",to:c[3].trim(),g:gl[k],h:hl[k],a:al[k]});added++;}
+  }
+  save();return "Merged "+added+" people from "+(lines.length-start-1)+" rows"+(skipped?" ("+skipped+" zero or unreadable rows skipped)":"")+".";
+}
+function fill(pairs,v){var out=[];pairs.forEach(function(p){for(var i=0;i<p[1]&&out.length<v;i++)out.push(p[0]);});while(out.length<v)out.push("U");return out;}
+
+/* ---------- render ---------- */
+var app=document.getElementById("app");
+function esc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+
+function render(){
+  var s=S();
+  var h='<header class="top"><div><h1>Turning movement counter</h1><div class="sub">'+esc(s.location||"Untitled location")+' · '+esc(s.date)+(storageOK?"":' · <span class="warn">Not saving on this device. Export often.</span>')+'</div></div>'+
+    '<nav class="tabs" aria-label="Sections">'+tabBtn("count","Count")+tabBtn("data","Data and export")+tabBtn("setup","Setup")+'</nav></header>';
+  if(ui.tab==="count")h+=renderCount();else if(ui.tab==="data")h+=renderData();else h+=renderSetup();
+  app.innerHTML=h;
+}
+function tabBtn(k,t){return '<button data-act="tab" data-v="'+k+'"'+(ui.tab===k?' aria-current="page"':'')+'>'+t+'</button>';}
+
+function renderCount(){
+  var s=S(),iv=curIv(),m=MODE[ui.mode];
+  if(!legsValid())return '<div class="panel"><p class="warn">Two enabled legs share a compass position, or fewer than two legs are on. Fix this in Setup.</p></div>';
+  var h='<div class="panel"><div class="clockbar"><div><div class="interval">'+iv+'–'+ivEnd(iv)+'<small>'+(s.clock==="live"?"live clock":"video clock")+'</small></div>';
+  h+='<div class="sumbar">';
+  MODES.forEach(function(mm){h+='<span>'+mm.pl+' <b>'+countWhere(function(e){return e.iv===iv&&e.m===mm.k;})+'</b></span>';});
+  h+='</div></div><div class="row">';
+  if(s.clock==="manual"){h+='<button class="btn" data-act="iv" data-v="-1" aria-label="Previous interval">◀ Previous</button><button class="btn" data-act="iv" data-v="1" aria-label="Next interval">Next ▶</button>';}
+  h+='<button class="btn" data-act="undo"'+(s.events.length?'':' disabled')+'>Undo last</button></div></div>';
+  h+='<div class="modes" role="group" aria-label="Mode">';
+  MODES.forEach(function(mm){h+='<button data-act="mode" data-v="'+mm.k+'" data-m="'+mm.k+'" aria-pressed="'+(ui.mode===mm.k)+'">'+mm.name+'<span>'+mm.sub+'</span></button>';});
+  h+='</div><div class="attrs">';
+  h+=attrRow("Gender","g",[["F","F"],["M","M"],["U","?"]],false);
+  h+=attrRow("Helmet","h",[["Y","Yes"],["N","No"],["U","?"]],m.type!=="turn");
+  h+=attrRow("Age","a",[["C","Child"],["A","Adult"],["E","Elder"],["U","?"]],false);
+  h+='</div>';
+  h+='<div class="xing mode-'+ui.mode+'">';
+  ["N","E","S","W"].forEach(function(pos){h+=legCell(pos,iv);});
+  h+='<div class="center"><b>'+(ui.entry?("from Leg "+ui.entry):"")+'</b><span>'+(m.type==="cross"?"Tap the crosswalk heading":(ui.entry?"Now tap the exit leg":"Tap the arrival leg"))+'</span></div>';
+  h+=cornerNames();
+  h+='</div><p class="hint">'+(m.type==="cross"?"One tap per person per crosswalk. Pick gender and age first if you can see them; anything left on ? is recorded as unobserved.":(ui.entry?'Tap the same leg again for a U-turn. <button class="btn" data-act="cancelEntry">Cancel</button>':"Two taps per rider: where they arrive, then where they leave."))+'</p></div>';
+  // recent log
+  var recent=s.events.slice(-8).reverse();
+  h+='<div class="panel"><h2>Recent entries</h2>';
+  if(!recent.length)h+='<p class="note">Nothing counted yet. Pick a mode above and tap the intersection.</p>';
+  else{h+='<ul class="log">';recent.forEach(function(e){h+='<li><span>'+esc(describe(e))+'</span><button data-act="del" data-v="'+e.id+'" aria-label="Delete entry">Delete</button></li>';});h+='</ul>';}
+  h+='</div>';
+  return h;
+}
+function attrRow(label,key,opts,off){
+  var h='<div class="attr'+(off?' off':'')+'"><span class="k">'+label+'</span><div class="seg" role="group" aria-label="'+label+'">';
+  opts.forEach(function(o){h+='<button data-act="attr" data-k="'+key+'" data-v="'+o[0]+'" aria-pressed="'+(ui[key]===o[0])+'">'+o[1]+'</button>';});
+  return h+'</div></div>';
+}
+function cornerNames(){
+  var h='',map={N:"tl",E:"tr",S:"br",W:"bl"};
+  ["N","E","S","W"].forEach(function(p){var l=legByPos(p);if(l)h+='<div class="corner '+map[p]+'">Leg '+l.n+' ('+p+')'+(l.street?'<br>'+esc(l.street):'')+'</div>';});
+  return h;
+}
+function legCell(pos,iv){
+  var l=legByPos(pos),cls="road "+pos.toLowerCase(),m=MODE[ui.mode];
+  if(!l)return '<div class="cell '+cls+' closed" style="background:none" aria-hidden="true"></div>';
+  var h='<div class="cell '+cls+'">';
+  if(m.type==="cross"){
+    if(!l.xw){h+='<div class="tap" style="cursor:default">No crosswalk</div>';}
+    else xwHeadings(pos).forEach(function(hd){
+      var n=countWhere(function(e){return e.iv===iv&&e.m===ui.mode&&e.leg===l.n&&e.to===hd;});
+      var arrow={N:"↑",S:"↓",E:"→",W:"←"}[hd];
+      h+='<button class="tap xw" data-act="xw" data-leg="'+l.n+'" data-to="'+hd+'" aria-label="Leg '+l.n+' crosswalk heading '+hd+', '+n+' so far"><span class="pill"><span class="ct">'+n+'</span><span class="lb">'+arrow+' '+hd+'</span></span></button>';
+    });
+  }else{
+    if(!ui.entry){
+      var n2=countWhere(function(e){return e.iv===iv&&e.m===ui.mode&&e.leg===l.n;});
+      h+='<button class="tap arrive" data-act="arrive" data-leg="'+l.n+'"><span class="ct">'+n2+'</span><span class="lb">arrive on Leg '+l.n+'<br>heading '+OPP[pos]+'</span></button>';
+    }else{
+      var a=legByN(ui.entry),inD=OPP[a.pos],tn=turnName(inD,pos);
+      var n3=countWhere(function(e){return e.iv===iv&&e.m===ui.mode&&e.leg===a.n&&e.to===pos;});
+      h+='<button class="tap exit'+(a.n===l.n?' selected':'')+'" data-act="exit" data-leg="'+l.n+'"><span class="ct">'+n3+'</span><span class="lb">'+tn+'<br>exit Leg '+l.n+' ('+pos+')</span></button>';
+    }
+  }
+  return h+'</div>';
+}
+
+function renderData(){
+  var s=S(),rows=aggregate(),ivs=ivRange();
+  var h='<div class="panel"><h2>Export for the CAT Data Portal</h2>';
+  var n=s.events.length;
+  h+='<p class="note">'+n+' people recorded across '+ivs.length+' interval'+(ivs.length===1?'':'s')+'. Interval timestamps use offset '+(ivs.length?tzOffset(s.date,ivs[0]):tzOffset(s.date,"12:00"))+' from this device’s time zone.</p>';
+  var issues=[];
+  if(!s.location)issues.push("Add a location name in Setup.");
+  if(s.hi===""||s.lo==="")issues.push("High and low temperature are blank in Setup.");
+  ivs.forEach(function(iv){if(!countWhere(function(e){return e.iv===iv;}))issues.push("No entries in "+iv+". If the count ran, turn on zero-volume rows in Setup so this interval isn’t read as missing.");});
+  if(issues.length){h+='<ul class="warn">';issues.forEach(function(t){h+='<li>'+esc(t)+'</li>';});h+='</ul>';}
+  else if(n)h+='<p class="ok">Ready to export.</p>';
+  h+='<div class="row" style="margin-top:8px">';
+  if(canDownload())h+='<button class="btn primary" data-act="export"'+(n?'':' disabled')+'>Download CSV</button>';
+  h+='<button class="btn'+(canDownload()?'':' primary')+'" data-act="copy"'+(n?'':' disabled')+'>Copy CSV</button><button class="btn" data-act="toggleCsv">'+(ui.csvOpen?"Hide CSV text":"Show CSV text")+'</button>'+(ui.confirmClear?'':'<button class="btn danger" data-act="clearAsk"'+(n?'':' disabled')+'>Clear entries</button>')+'</div>';
+  if(ui.confirmClear&&n)h+='<div class="confirm" role="alertdialog" aria-labelledby="clrT"><p id="clrT"><b>Delete all '+n+' entries for '+esc(s.location||"this location")+'?</b></p><p class="note">Setup, legs and weather stay. This can’t be undone, so copy or download the CSV first if you need it.</p><div class="row" style="margin-top:8px"><button class="btn danger-fill" data-act="clearYes">Yes, delete '+n+' entries</button><button class="btn" data-act="clearNo">Cancel</button></div></div>';
+  if(ui.csvOpen)h+='<textarea class="csv" readonly aria-label="CSV output">'+esc(buildCSV())+'</textarea>';
+  h+='</div>';
+
+  // interval summary
+  h+='<div class="panel"><h2>Interval summary</h2><div class="scroll"><table><thead><tr><th>Interval</th>';
+  MODES.forEach(function(m){h+='<th>'+m.pl+'</th>';});h+='<th>Total</th></tr></thead><tbody>';
+  if(!ivs.length)h+='<tr><td colspan="6" class="l">No intervals yet.</td></tr>';
+  var tot={ped:0,wc:0,bike:0,oth:0};
+  ivs.forEach(function(iv){var rt=0;h+='<tr><td>'+iv+'</td>';MODES.forEach(function(m){var c=countWhere(function(e){return e.iv===iv&&e.m===m.k;});tot[m.k]+=c;rt+=c;h+='<td>'+c+'</td>';});h+='<td><b>'+rt+'</b></td></tr>';});
+  if(ivs.length){var g=0;h+='<tr><td><b>Total</b></td>';MODES.forEach(function(m){g+=tot[m.k];h+='<td><b>'+tot[m.k]+'</b></td>';});h+='<td><b>'+g+'</b></td></tr>';}
+  h+='</tbody></table></div></div>';
+
+  // CSV rows preview
+  h+='<div class="panel"><h2>CSV rows ('+rows.length+')</h2><div class="scroll" style="max-height:420px"><table><thead><tr><th>Interval</th><th>Leg</th><th>Dir</th><th>To</th><th class="l">Mode</th><th>Vol</th><th>F</th><th>M</th><th>?</th><th>Helm</th><th>No</th><th>?</th><th>Child</th><th>Adult</th><th>Elder</th><th>?</th></tr></thead><tbody>';
+  rows.forEach(function(r){var t=MODE[r.m].type==="turn";h+='<tr><td>'+r.iv+'</td><td>'+r.leg+'</td><td>'+(t?r.dir:"")+'</td><td>'+r.to+'</td><td class="l">'+esc(s.labels[r.m])+'</td><td><b>'+r.v+'</b></td><td>'+r.F+'</td><td>'+r.M+'</td><td>'+r.GU+'</td><td>'+(t?r.HY:0)+'</td><td>'+(t?r.HN:0)+'</td><td>'+(t?r.HU:0)+'</td><td>'+r.C+'</td><td>'+r.A+'</td><td>'+r.E+'</td><td>'+r.AU+'</td></tr>';});
+  h+='</tbody></table></div></div>';
+
+  // manual entry
+  var mm=ui.manual;if(!mm.iv)mm.iv=curIv();
+  var mvs=movements(mm.m);
+  h+='<div class="panel"><h2>Enter totals from a paper sheet</h2><p class="note">For one movement in one interval. Each attribute group must add up to the volume; leave a box blank and the remainder is recorded as unobserved.</p><div class="grid2" style="margin-top:8px">';
+  h+='<label class="f">Interval start<input data-man="iv" value="'+esc(mm.iv)+'" placeholder="07:15" inputmode="numeric"></label>';
+  h+='<label class="f">Mode<select data-man="m">'+MODES.map(function(m){return '<option value="'+m.k+'"'+(mm.m===m.k?' selected':'')+'>'+m.name+'</option>';}).join("")+'</select></label>';
+  h+='<label class="f" style="grid-column:span 2">Movement<select data-man="mv">'+mvs.map(function(v,i){return '<option value="'+i+'"'+(String(mm.mv)===String(i)?' selected':'')+'>'+esc(v.label)+'</option>';}).join("")+'</select></label>';
+  h+='<label class="f">Volume<input data-man="vol" inputmode="numeric" value="'+esc(mm.vol)+'"></label></div><div class="grid2" style="margin-top:8px">';
+  [["F","Female"],["M","Male"]].forEach(function(p){h+='<label class="f">'+p[1]+'<input data-man="'+p[0]+'" inputmode="numeric" value="'+esc(mm[p[0]])+'"></label>';});
+  if(MODE[mm.m].type==="turn")[["HY","Helmet"],["HN","No helmet"]].forEach(function(p){h+='<label class="f">'+p[1]+'<input data-man="'+p[0]+'" inputmode="numeric" value="'+esc(mm[p[0]])+'"></label>';});
+  [["C","Child"],["A","Adult"],["E","Elder"]].forEach(function(p){h+='<label class="f">'+p[1]+'<input data-man="'+p[0]+'" inputmode="numeric" value="'+esc(mm[p[0]])+'"></label>';});
+  h+='</div><div class="row" style="margin-top:10px"><button class="btn primary" data-act="manualAdd">Add these counts</button><span id="manMsg" class="note"></span></div></div>';
+
+  // merge
+  h+='<div class="panel"><h2>Merge another counter’s CSV</h2><p class="note">If two people count the same intersection (for example, one on crosswalks and one on bikes), paste the other person’s exported CSV here to combine both into this location’s file. Mode names must match the ones in Setup.</p>';
+  h+='<textarea class="csv" data-imp="1" aria-label="CSV to merge" placeholder="Paste exported CSV here">'+esc(ui.importText)+'</textarea><div class="row" style="margin-top:8px"><button class="btn" data-act="import">Merge into this location</button></div></div>';
+  return h;
+}
+
+function renderSetup(){
+  var s=S();
+  var h='<div class="panel"><h2>1. Location</h2><div class="row" style="margin-bottom:10px"><label class="f" style="flex:1;min-width:220px">Working on<select data-act="pick">';
+  store.sessions.forEach(function(x){h+='<option value="'+x.id+'"'+(x.id===s.id?' selected':'')+'>'+esc((x.location||"Untitled location")+" ("+x.date+", "+x.events.length+" people)")+'</option>';});
+  h+='</select></label><button class="btn" data-act="newLoc">New location</button><button class="btn" data-act="cloneLoc">New location with same date and weather</button><button class="btn danger" data-act="delLoc">Delete this location</button></div>';
+  h+='<div class="grid2">'+inp("location","Location (CAT name)")+inp("project","Project")+inp("date","Date","date")+inp("counter","Counter(s)")+
+     sel("period","Count period",["Before","Near-term after","Long-term after"])+sel("method","Method",["In-field","From video"])+'</div></div>';
+  h+='<div class="panel"><h2>2. Weather (CSV batch header)</h2><div class="grid2">'+
+     '<label class="f">Precipitation<select data-f="precip"><option value="false"'+(!s.precip?' selected':'')+'>No</option><option value="true"'+(s.precip?' selected':'')+'>Yes</option></select></label>'+
+     inp("hi","High temp (°F)","number")+inp("lo","Low temp (°F)","number")+'<label class="f" style="grid-column:1/-1">Other factors<input data-f="other" value="'+esc(s.other)+'" placeholder="Windy, school out, event nearby"></label></div></div>';
+  h+='<div class="panel"><h2>3. Legs</h2><p class="note" style="margin:0 0 8px">Match the leg numbers in the CAT Data Portal. Snap skewed legs to the nearest compass point. Turn a leg off for a T intersection, or turn off a crosswalk that’s closed.</p><div class="scroll"><table class="legtable"><thead><tr><th>Leg</th><th>Position</th><th>Street</th><th>Leg on</th><th>Crosswalk</th></tr></thead><tbody>';
+  s.legs.forEach(function(l,i){
+    h+='<tr><td><b>'+l.n+'</b></td><td><select data-leg="'+i+'" data-lk="pos">'+DIRS.map(function(d){return '<option'+(l.pos===d?' selected':'')+'>'+d+'</option>';}).join("")+'</select></td>'+
+       '<td><input data-leg="'+i+'" data-lk="street" value="'+esc(l.street)+'"></td>'+
+       '<td><input type="checkbox" data-leg="'+i+'" data-lk="on"'+(l.on?' checked':'')+' aria-label="Leg '+l.n+' on"></td>'+
+       '<td><input type="checkbox" data-leg="'+i+'" data-lk="xw"'+(l.xw?' checked':'')+' aria-label="Leg '+l.n+' crosswalk"></td></tr>';
+  });
+  h+='</tbody></table></div>'+(legsValid()?'':'<p class="warn">Two enabled legs share a position. Each enabled leg needs its own compass point.</p>')+'</div>';
+  h+='<div class="panel"><h2>4. Counting options</h2><div class="grid2">'+
+     sel("clock","Clock",[["live","Live clock (in the field)"],["manual","Video clock (step intervals by hand)"]])+
+     (s.clock==="manual"?'<label class="f">Current interval start<input data-f="manualIv" value="'+esc(s.manualIv)+'" placeholder="07:00"></label>':'')+
+     '<label class="f">After each tap<select data-f="keepAttrs"><option value="false"'+(!s.keepAttrs?' selected':'')+'>Reset attributes to defaults</option><option value="true"'+(s.keepAttrs?' selected':'')+'>Keep last attributes</option></select></label>'+
+     '<label class="f">Zero-volume rows<select data-f="zeroRows"><option value="false"'+(!s.zeroRows?' selected':'')+'>Only rows with people</option><option value="true"'+(s.zeroRows?' selected':'')+'>Every movement, every interval</option></select></label></div>';
+  h+='<h3>Default attributes</h3><div class="grid2">'+
+     defSel("g","Gender",[["U","Unobserved"],["F","Female"],["M","Male"]])+defSel("h","Helmet",[["U","Unobserved"],["Y","Helmet"],["N","No helmet"]])+defSel("a","Age",[["U","Unobserved"],["A","Adult"],["C","Child"],["E","Elder"]])+'</div>';
+  h+='<h3>Mode names written to the CSV</h3><p class="note" style="margin:0 0 8px">These match the CAT Data Portal tutorial sample. Leave them as is unless the portal’s mode list says otherwise.</p><div class="grid2">';
+  MODES.forEach(function(m){h+='<label class="f">'+m.name+'<input data-lab="'+m.k+'" value="'+esc(s.labels[m.k])+'"></label>';});
+  h+='</div></div>';
+  return h;
+}
+function inp(k,label,type){return '<label class="f">'+label+'<input data-f="'+k+'" type="'+(type||"text")+'" value="'+esc(S()[k])+'"></label>';}
+function sel(k,label,opts){return '<label class="f">'+label+'<select data-f="'+k+'">'+opts.map(function(o){var v=Array.isArray(o)?o[0]:o,t=Array.isArray(o)?o[1]:o;return '<option value="'+esc(v)+'"'+(S()[k]===v?' selected':'')+'>'+esc(t)+'</option>';}).join("")+'</select></label>';}
+function defSel(k,label,opts){return '<label class="f">'+label+'<select data-def="'+k+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(S().defaults[k]===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join("")+'</select></label>';}
+
+/* ---------- events ---------- */
+app.addEventListener("click",function(ev){
+  var t=ev.target.closest("[data-act]");if(!t)return;var a=t.getAttribute("data-act"),v=t.getAttribute("data-v"),s=S();
+  if(a==="pick")return;
+  if(a==="tab"){ui.tab=v;ui.entry=null;ui.confirmClear=false;render();return;}
+  if(a==="mode"){ui.mode=v;ui.entry=null;render();return;}
+  if(a==="attr"){ui[t.getAttribute("data-k")]=v;render();return;}
+  if(a==="iv"){s.manualIv=shiftIv(s.manualIv,+v);save();render();return;}
+  if(a==="undo"){undoLast();return;}
+  if(a==="cancelEntry"){ui.entry=null;render();return;}
+  if(a==="xw"){record({iv:curIv(),m:ui.mode,leg:+t.getAttribute("data-leg"),dir:"",to:t.getAttribute("data-to"),g:ui.g,h:"U",a:ui.a});render();return;}
+  if(a==="arrive"){ui.entry=+t.getAttribute("data-leg");render();return;}
+  if(a==="exit"){var A=legByN(ui.entry),B=legByN(+t.getAttribute("data-leg"));record({iv:curIv(),m:ui.mode,leg:A.n,dir:OPP[A.pos],to:B.pos,g:ui.g,h:ui.h,a:ui.a});ui.entry=null;render();return;}
+  if(a==="del"){s.events=s.events.filter(function(e){return e.id!==v;});save();render();return;}
+  if(a==="clearAsk"){ui.confirmClear=true;render();var y=document.querySelector('[data-act="clearNo"]');if(y)y.focus();return;}
+  if(a==="clearNo"){ui.confirmClear=false;render();return;}
+  if(a==="clearYes"){var cnt=s.events.length;s.events=[];ui.entry=null;ui.confirmClear=false;ui.csvOpen=false;save();render();flashMsg("Cleared "+cnt+" entries.");return;}
+  if(a==="export"){exportCSV();return;}
+  if(a==="copy"){copyCSV();return;}
+  if(a==="toggleCsv"){ui.csvOpen=!ui.csvOpen;render();return;}
+  if(a==="import"){if(!ui.importText.trim()){flashMsg("Paste a CSV first.");return;}var msg=importCSV(ui.importText);ui.importText="";render();flashMsg(msg);return;}
+  if(a==="manualAdd"){manualAdd();return;}
+  if(a==="newLoc"){var n=newSession();store.sessions.push(n);store.active=n.id;save();resetAttrs();render();return;}
+  if(a==="cloneLoc"){var c=newSession(s);store.sessions.push(c);store.active=c.id;save();resetAttrs();render();return;}
+  if(a==="delLoc"){if(!confirm("Delete "+(s.location||"this location")+" and its "+s.events.length+" entries? Export first if you need them."))return;store.sessions=store.sessions.filter(function(x){return x.id!==s.id;});if(!store.sessions.length){var z=newSession();store.sessions.push(z);}store.active=store.sessions[0].id;save();render();return;}
+});
+app.addEventListener("change",function(ev){
+  var t=ev.target,s=S();
+  if(t.matches('[data-act="pick"]')){store.active=t.value;ui.entry=null;ui.confirmClear=false;save();resetAttrs();render();return;}
+  if(t.hasAttribute("data-f")){var k=t.getAttribute("data-f"),v=t.value;
+    if(k==="precip"||k==="keepAttrs"||k==="zeroRows")v=(v==="true");
+    if(k==="manualIv"){var nv=normIv(v);if(!nv){flashMsg("Use 24-hour time like 07:15.");render();return;}v=nv;}
+    s[k]=v;save();render();return;}
+  if(t.hasAttribute("data-leg")){var l=s.legs[+t.getAttribute("data-leg")],lk=t.getAttribute("data-lk");l[lk]=(t.type==="checkbox")?t.checked:t.value;save();render();return;}
+  if(t.hasAttribute("data-def")){s.defaults[t.getAttribute("data-def")]=t.value;save();resetAttrs();render();return;}
+  if(t.hasAttribute("data-lab")){s.labels[t.getAttribute("data-lab")]=t.value.trim()||s.labels[t.getAttribute("data-lab")];save();render();return;}
+  if(t.hasAttribute("data-man")){var mk=t.getAttribute("data-man");ui.manual[mk]=t.value;if(mk==="m"){ui.manual.mv="0";}render();return;}
+});
+app.addEventListener("input",function(ev){var t=ev.target;if(t.hasAttribute("data-imp"))ui.importText=t.value;if(t.hasAttribute("data-man")&&t.tagName==="INPUT")ui.manual[t.getAttribute("data-man")]=t.value;});
+
+function manualAdd(){
+  var mm=ui.manual,msg=document.getElementById("manMsg");
+  var iv=normIv(mm.iv),v=parseInt(mm.vol,10);
+  function num(x){var n=parseInt(x,10);return isNaN(n)?0:n;}
+  if(!iv){msg.textContent="Enter the interval start as 24-hour time, like 07:15.";msg.className="warn";return;}
+  if(!(v>0)){msg.textContent="Enter a volume of 1 or more.";msg.className="warn";return;}
+  var turn=MODE[mm.m].type==="turn";
+  var gs=num(mm.F)+num(mm.M),hs=num(mm.HY)+num(mm.HN),as=num(mm.C)+num(mm.A)+num(mm.E);
+  if(gs>v||as>v||(turn&&hs>v)){msg.textContent="An attribute group adds up to more than the volume.";msg.className="warn";return;}
+  var mv=movements(mm.m)[parseInt(mm.mv||"0",10)];
+  if(!mv){msg.textContent="Pick a movement.";msg.className="warn";return;}
+  var gl=fill([["F",num(mm.F)],["M",num(mm.M)]],v),hl=turn?fill([["Y",num(mm.HY)],["N",num(mm.HN)]],v):fill([],v),al=fill([["C",num(mm.C)],["A",num(mm.A)],["E",num(mm.E)]],v);
+  var s=S();for(var i=0;i<v;i++)s.events.push({id:uid(),at:"paper",iv:iv,m:mm.m,leg:mv.leg,dir:mv.dir,to:mv.to,g:gl[i],h:hl[i],a:al[i]});
+  save();ui.manual={iv:iv,m:mm.m,mv:mm.mv,vol:"",F:"",M:"",GU:"",HY:"",HN:"",HU:"",C:"",A:"",E:"",AU:""};render();
+  flashMsg("Added "+v+" to "+mv.label+" at "+iv+".");
+}
+
+// keep the live interval current
+setInterval(function(){if(ui.tab==="count"&&S().clock==="live"){var el=document.querySelector(".interval");if(el&&el.firstChild&&el.firstChild.nodeValue!==curIv()+"–"+ivEnd(curIv()))render();}},15000);
+render();
+})();
+</script>
+</body>
+</html>
